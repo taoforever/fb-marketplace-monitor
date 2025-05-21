@@ -23,6 +23,11 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps
 
+       - name: Create fb_cookies.json from secret
+        run: |
+          echo "${{ secrets.FB_COOKIES_JSON }}" > fb_cookies.json
+
+
       - name: Run monitor script
         env:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
