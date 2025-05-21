@@ -36,12 +36,19 @@ def matches_filters(title, price):
     return PRICE_MIN <= price <= PRICE_MAX
 
 
-def send_email(new_items):
+
+def send_email(new_items, attachments=None):
     yag = yagmail.SMTP(EMAIL_SENDER, EMAIL_PASSWORD)
-    subject = f"[FB Marketplace] 有 {len(new_items)} 条新匹配信息"
-    body = "\n\n".join([f"{item['title']}\n价格: {item['price']}\n链接: {item['url']}" for item in new_items])
-    yag.send(to=EMAIL_TO, subject=subject, contents=body)
-    print(f"[+] 邮件已发送，共 {len(new_items)} 条新信息")
+    subject = f"[FB Marketplace] 有 {len(new_items)} 条新匹配信息" if new_items else "[FB Marketplace] 抓取失败或无匹配信息"
+    if new_items:
+        body = "\n\n".join([f"{item['title']}\n价格: {item['price']}\n链接: {item['url']}" for item in new_items])
+    else:
+        body = "此次运行未能抓取到任何商品，已附上调试截图和页面 HTML 文件。"
+
+    yag.send(to=EMAIL_TO, subject=subject, contents=body, attachments=attachments)
+    print(f"[+] 邮件已发送，附带调试文件: {attachments}")
+
+
 
 
 def scrape_marketplace():
@@ -92,6 +99,7 @@ def scrape_marketplace():
         save_seen_ids(seen_ids)
     else:
         print("[=] 没有发现新的匹配商品")
+        send_email([], attachments=["debug.png", "debug.html"])
 
 
 if __name__ == "__main__":
