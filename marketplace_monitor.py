@@ -7,7 +7,7 @@ import os
 
 # ===== 从环境变量读取用户配置 =====
 KEYWORDS = ["canoe"]
-CITY_URL = "https://www.facebook.com/marketplace/toronto"  # 修改为你要监控的城市
+CITY_URL = "https://www.facebook.com/marketplace/toronto/search?availability=in%20stock&query=canoe"  # 修改为你要监控的城市
 PRICE_MIN = 0
 PRICE_MAX = 800
 
