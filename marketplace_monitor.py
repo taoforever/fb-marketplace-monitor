@@ -1,12 +1,12 @@
-# marketplace_monitor.py
+import os
 import json
-import time
 import yagmail
+import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-import os
 
-KEYWORDS = ["canoe"]
+# ========== 参数配置 ==========
+KEYWORDS = ["canoe", "kayak"]
 CITY_URL = "https://www.facebook.com/marketplace/toronto/search?availability=in%20stock&query=canoe"
 PRICE_MIN = 0
 PRICE_MAX = 800
@@ -14,18 +14,18 @@ PRICE_MAX = 800
 EMAIL_SENDER = os.environ["EMAIL_SENDER"]
 EMAIL_PASSWORD = os.environ["EMAIL_PASSWORD"]
 EMAIL_TO = os.environ["EMAIL_TO"]
-
-SEEN_FILE = Path("seen_items.json")
 COOKIE_FILE = Path("fb_cookies.json")
+SEEN_FILE = Path("seen_items.json")
 
+# ========== 工具函数 ==========
 
 def load_seen_ids():
-    return set(json.loads(SEEN_FILE.read_text())) if SEEN_FILE.exists() else set()
-
+    if SEEN_FILE.exists():
+        return set(json.loads(SEEN_FILE.read_text()))
+    return set()
 
 def save_seen_ids(seen_ids):
     SEEN_FILE.write_text(json.dumps(list(seen_ids)))
-
 
 def matches_filters(title, price):
     if not any(kw.lower() in title.lower() for kw in KEYWORDS):
@@ -36,16 +36,17 @@ def matches_filters(title, price):
 
 def send_email(new_items, attachments=None):
     yag = yagmail.SMTP(EMAIL_SENDER, EMAIL_PASSWORD)
-    subject = f"[FB Marketplace] 有 {len(new_items)} 条新匹配信息" if new_items else "[FB Marketplace] 抓取失败或无匹配信息"
     if new_items:
+        subject = f"[FB Marketplace] 有 {len(new_items)} 条新匹配信息"
         body = "\n\n".join([f"{item['title']}\n价格: {item['price']}\n链接: {item['url']}" for item in new_items])
     else:
-        body = "此次运行未能抓取到任何商品，已附上调试截图和页面 HTML 文件。"
+        subject = "[FB Marketplace] 没有匹配商品，已附上调试截图和页面源代码"
+        body = "没有抓取到任何商品，详见附件 debug.png 和 debug.html。"
 
     yag.send(to=EMAIL_TO, subject=subject, contents=body, attachments=attachments)
-    print(f"[+] 邮件已发送，附带调试文件: {attachments}")
+    print(f"[+] 邮件已发送，共 {len(new_items)} 条新信息（含附件 {attachments}）")
 
-
+# ========== 抓取核心函数 ==========
 
 def scrape_marketplace():
     seen_ids = load_seen_ids()
@@ -55,19 +56,16 @@ def scrape_marketplace():
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
 
-        # ===== 加载 cookie 登录 =====
+        # 注入 cookie 模拟登录
         if COOKIE_FILE.exists():
             cookies = json.loads(COOKIE_FILE.read_text())
             context.add_cookies(cookies)
-            print("[+] Cookie 已加载")
+            print("[+] 已加载 cookies")
 
         page = context.new_page()
         print(f"[+] 正在访问: {CITY_URL}")
-        page.goto(CITY_URL)
+        page.goto(CITY_URL, timeout=60000)
         page.wait_for_timeout(5000)
-
-        # 保存截图调试用
-        page.screenshot(path="debug.png", full_page=True)
 
         items = page.query_selector_all("div[role='article']")
         print(f"[+] 抓取到 {len(items)} 个商品")
@@ -92,16 +90,19 @@ def scrape_marketplace():
             except Exception:
                 continue
 
+        # 如果没有新商品，保存 debug 信息
+        if not new_items:
+            page.screenshot(path="debug.png", full_page=True)
+            Path("debug.html").write_text(page.content())
+            print("[=] 没有商品，已保存 debug.png 和 debug.html")
+            send_email([], attachments=["debug.png", "debug.html"])
+        else:
+            send_email(new_items)
+            save_seen_ids(seen_ids)
+
         browser.close()
 
-    if new_items:
-        send_email(new_items, screenshot_path="debug.png")
-        save_seen_ids(seen_ids)
-    else:
-        print("[=] 没有发现新的匹配商品")
-        send_email([], attachments=["debug.png", "debug.html"])
 
-
+# ========== 主函数 ==========
 if __name__ == "__main__":
     scrape_marketplace()
-
