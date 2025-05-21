@@ -46,14 +46,6 @@ def send_email(new_items, attachments=None):
     yag.send(to=EMAIL_TO, subject=subject, contents=body, attachments=attachments)
     print(f"[+] 邮件已发送，共 {len(new_items)} 条新信息（含附件 {attachments}）")
 
-if COOKIE_FILE.exists():
-    cookies = json.loads(COOKIE_FILE.read_text())
-    context = browser.new_context()
-    context.add_cookies(cookies)
-    print("[+] 已加载 cookies")
-else:
-    context = browser.new_context()
-
 
 # ========== 抓取核心函数 ==========
 
