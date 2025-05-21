@@ -57,6 +57,11 @@ def scrape_marketplace():
         page.goto(CITY_URL)
         page.wait_for_timeout(5000)
 
+        # 保存截图与 HTML 供调试
+        page.screenshot(path="debug.png")
+        with open("debug.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+            
         items = page.query_selector_all("div[role='article']")
         print(f"[+] 抓取到 {len(items)} 个商品")
 
