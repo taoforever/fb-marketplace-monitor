@@ -97,6 +97,7 @@ def scrape_marketplace():
         save_seen_ids(seen_ids)
     else:
         print("[=] 没有发现新的匹配商品")
+        send_email([], attachments=["debug.png", "debug.html"])
 
 
 if __name__ == "__main__":
